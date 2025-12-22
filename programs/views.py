@@ -82,6 +82,7 @@ class ProgramListView(StaffAccessControlMixin, AnalystAccessMixin, ProgramManage
         # Apply additional filters
         department_filter = self.request.GET.get('department', '')
         status_filter = self.request.GET.get('status', '')
+        program_filter = self.request.GET.get('program', '').strip()
         capacity_filter = self.request.GET.get('capacity', '')
         search_query = self.request.GET.get('search', '').strip()
         
@@ -90,6 +91,14 @@ class ProgramListView(StaffAccessControlMixin, AnalystAccessMixin, ProgramManage
         
         if status_filter:
             queryset = queryset.filter(status=status_filter)
+        
+        # Apply program filter before capacity filter (which may convert to list)
+        if program_filter:
+            try:
+                program_id = int(program_filter)
+                queryset = queryset.filter(id=program_id)
+            except (ValueError, TypeError):
+                pass
         
         if capacity_filter:
             if capacity_filter == 'at_capacity':
@@ -280,9 +289,13 @@ class ProgramListView(StaffAccessControlMixin, AnalystAccessMixin, ProgramManage
             ('no_limit', 'No Capacity Limit'),
         ]
         
+        # Get accessible programs for dropdown filter
+        context['all_programs'] = base_queryset.order_by('name')
+        
         # Add current filter values
         context['current_department'] = self.request.GET.get('department', '')
         context['current_status'] = self.request.GET.get('status', '')
+        context['current_program'] = self.request.GET.get('program', '')
         context['per_page'] = self.request.GET.get('per_page', '10')
         context['time_filter'] = time_filter
         

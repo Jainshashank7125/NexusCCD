@@ -131,40 +131,15 @@
     <div class="bg-white rounded-xl shadow-sm border border-neutral-200 p-6 mb-8">
         <form method="GET" class="space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <!-- Program Search -->
-                <div class="lg:col-span-2">
-                    <label class="block text-sm font-bold text-neutral-700 mb-2 font-subheader">Program Search</label>
-                    <div class="relative">
-                        <input type="text" 
-                               id="program-search" 
-                               placeholder="Search programs..." 
-                               class="w-full pl-10 pr-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-sky focus:border-transparent font-body">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                            </svg>
-                        </div>
-                        <button type="button" 
-                                id="clear-program-search" 
-                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600 hidden">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </button>
-                    </div>
-                    
-                    <!-- Program Search Results -->
-                    <div id="program-search-results" class="hidden mt-2 max-h-60 overflow-y-auto border border-neutral-200 rounded-lg bg-white shadow-lg z-50">
-                        <div id="program-results-list" class="py-1">
-                            <!-- Search results will be populated here -->
-                        </div>
-                        <div id="program-no-results" class="hidden p-4 text-center text-neutral-500">
-                            <svg class="w-8 h-8 mx-auto mb-2 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.47-.881-6.08-2.33"></path>
-                            </svg>
-                            <p class="text-sm">No programs found</p>
-                        </div>
-                    </div>
+                <!-- Program Filter -->
+                <div>
+                    <label class="block text-sm font-bold text-neutral-700 mb-2 font-subheader">Program</label>
+                    <select name="program" class="w-full px-3 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-sky focus:border-transparent font-body">
+                        <option value="">All Programs</option>
+                        {% for program in all_programs %}
+                        <option value="{{ program.id }}" {% if current_program == program.id|stringformat:"s" %}selected{% endif %}>{{ program.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 
                 <!-- Department Filter -->
@@ -227,7 +202,7 @@
                         </svg>
                         Apply Filters
                     </button>
-                    {% if search_query or current_department or current_status or current_capacity or time_filter %}
+                    {% if search_query or current_program or current_department or current_status or current_capacity or time_filter %}
                     <a href="{% url 'programs:list' %}" class="inline-flex items-center px-4 py-3 border border-neutral-300 text-sm font-bold rounded-xl text-neutral-700 bg-white hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-sky transition-all duration-200 shadow-sm">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -238,7 +213,7 @@
                 </div>
                 
                 <!-- Results Count -->
-                {% if search_query or current_department or current_status or current_capacity or time_filter %}
+                {% if search_query or current_program or current_department or current_status or current_capacity or time_filter %}
                 <div class="text-sm text-neutral-600 font-body">
                     <span class="font-bold">{{ total_filtered_count }}</span> program(s) found
                 </div>
@@ -1027,11 +1002,11 @@ function highlightSearchTerm(text, searchTerm) {
     return text.replace(regex, '<span class="bg-yellow-200 font-bold">$1</span>');
 }
 
-// Initialize program search when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing program search');
-    initializeProgramSearch();
-});
+// Program search functionality removed - using filters instead
+// document.addEventListener('DOMContentLoaded', function() {
+//     console.log('DOM loaded, initializing program search');
+//     initializeProgramSearch();
+// });
 
 // Function to handle rows per page change
 function changeRowsPerPage(perPage) {

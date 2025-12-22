@@ -869,6 +869,58 @@ class RestrictionListView(AnalystAccessMixin, ProgramManagerAccessMixin, ListVie
             per_page = 10
         return per_page
     
+    def get_accessible_programs(self):
+        """Get all programs that the current user has access to based on their roles"""
+        if not self.request.user or not self.request.user.is_authenticated:
+            return Program.objects.filter(status='active', is_archived=False).order_by('name')
+        
+        try:
+            staff = self.request.user.staff_profile
+            user_roles = staff.staffrole_set.select_related('role').all()
+            role_names = [staff_role.role.name for staff_role in user_roles]
+            
+            # SuperAdmin and Admin see all programs
+            if any(role in ['SuperAdmin', 'Admin'] for role in role_names):
+                return Program.objects.filter(status='active', is_archived=False).order_by('name')
+            
+            # Analyst sees all programs (for reporting purposes)
+            elif 'Analyst' in role_names and not any(role in ['SuperAdmin', 'Manager', 'Leader', 'Staff'] for role in role_names):
+                return Program.objects.filter(status='active', is_archived=False).order_by('name')
+            
+            # Manager sees programs they're assigned to
+            elif staff.is_program_manager():
+                return staff.get_assigned_programs().filter(status='active', is_archived=False).order_by('name')
+            
+            # Leader sees programs in departments they lead
+            elif staff.is_leader():
+                assigned_departments = staff.get_assigned_departments()
+                return Program.objects.filter(
+                    department__in=assigned_departments,
+                    status='active',
+                    is_archived=False
+                ).distinct().order_by('name')
+            
+            # Staff sees programs where their assigned clients are enrolled
+            elif 'Staff' in role_names:
+                from staff.models import StaffClientAssignment
+                assigned_client_ids = StaffClientAssignment.objects.filter(
+                    staff=staff,
+                    is_active=True
+                ).values_list('client_id', flat=True)
+                return Program.objects.filter(
+                    clientprogramenrollment__client_id__in=assigned_client_ids,
+                    status='active',
+                    is_archived=False
+                ).distinct().order_by('name')
+            
+            # Default: show all active programs
+            else:
+                return Program.objects.filter(status='active', is_archived=False).order_by('name')
+                
+        except Exception:
+            # If there's any error, show all active programs
+            return Program.objects.filter(status='active', is_archived=False).order_by('name')
+    
     def get_queryset(self):
         # First apply the ProgramManagerAccessMixin filtering
         queryset = super().get_queryset()
@@ -974,14 +1026,32 @@ class RestrictionListView(AnalystAccessMixin, ProgramManagerAccessMixin, ListVie
                 Q(client__last_name__icontains=client_search_query)
             )
         
-        # Apply program search
-        program_search_query = self.request.GET.get('program_search', '').strip()
-        if program_search_query:
-            queryset = queryset.filter(
-                Q(program__name__icontains=program_search_query)
-            )
+        # Apply program filter (by ID instead of search)
+        program_filter = self.request.GET.get('program', '').strip()
+        client_sort = self.request.GET.get('client_sort', '').strip()
+        if program_filter:
+            try:
+                program_id = int(program_filter)
+                queryset = queryset.filter(program_id=program_id)
+            except (ValueError, TypeError):
+                pass
         
-        return queryset.select_related('client', 'program', 'program__department').order_by('-start_date')
+        # Apply client sorting with case-insensitive ordering (first name, then last name)
+        from django.db.models.functions import Lower
+        if client_sort == 'name_asc':
+            queryset = queryset.annotate(
+                client_first_name_lower=Lower('client__first_name'),
+                client_last_name_lower=Lower('client__last_name')
+            ).order_by('client_first_name_lower', 'client_last_name_lower', '-start_date')
+        elif client_sort == 'name_desc':
+            queryset = queryset.annotate(
+                client_first_name_lower=Lower('client__first_name'),
+                client_last_name_lower=Lower('client__last_name')
+            ).order_by('-client_first_name_lower', '-client_last_name_lower', '-start_date')
+        else:
+            queryset = queryset.order_by('-start_date')
+        
+        return queryset.select_related('client', 'program', 'program__department')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1089,9 +1159,13 @@ class RestrictionListView(AnalystAccessMixin, ProgramManagerAccessMixin, ListVie
         context['current_search'] = self.request.GET.get('search', '')
         context['per_page'] = self.request.GET.get('per_page', '10')
         
+        # Get accessible programs for dropdown
+        context['programs'] = self.get_accessible_programs()
+        
         # Add search parameters
         context['client_search'] = self.request.GET.get('client_search', '')
-        context['program_search'] = self.request.GET.get('program_search', '')
+        context['current_program'] = self.request.GET.get('program', '')
+        context['client_sort'] = self.request.GET.get('client_sort', '')
         
         # Add date filter parameters
         start_date, end_date, parsed_start_date, parsed_end_date = get_date_range_filter(self.request)
@@ -1946,6 +2020,58 @@ class EnrollmentListView(StaffAccessControlMixin, AnalystAccessMixin, ProgramMan
             per_page = 10
         return per_page
     
+    def get_accessible_programs(self):
+        """Get all programs that the current user has access to based on their roles"""
+        if not self.request.user or not self.request.user.is_authenticated:
+            return Program.objects.filter(status='active', is_archived=False).order_by('name')
+        
+        try:
+            staff = self.request.user.staff_profile
+            user_roles = staff.staffrole_set.select_related('role').all()
+            role_names = [staff_role.role.name for staff_role in user_roles]
+            
+            # SuperAdmin and Admin see all programs
+            if any(role in ['SuperAdmin', 'Admin'] for role in role_names):
+                return Program.objects.filter(status='active', is_archived=False).order_by('name')
+            
+            # Analyst sees all programs (for reporting purposes)
+            elif 'Analyst' in role_names and not any(role in ['SuperAdmin', 'Manager', 'Leader', 'Staff'] for role in role_names):
+                return Program.objects.filter(status='active', is_archived=False).order_by('name')
+            
+            # Manager sees programs they're assigned to
+            elif staff.is_program_manager():
+                return staff.get_assigned_programs().filter(status='active', is_archived=False).order_by('name')
+            
+            # Leader sees programs in departments they lead
+            elif staff.is_leader():
+                assigned_departments = staff.get_assigned_departments()
+                return Program.objects.filter(
+                    department__in=assigned_departments,
+                    status='active',
+                    is_archived=False
+                ).distinct().order_by('name')
+            
+            # Staff sees programs where their assigned clients are enrolled
+            elif 'Staff' in role_names:
+                from staff.models import StaffClientAssignment
+                assigned_client_ids = StaffClientAssignment.objects.filter(
+                    staff=staff,
+                    is_active=True
+                ).values_list('client_id', flat=True)
+                return Program.objects.filter(
+                    clientprogramenrollment__client_id__in=assigned_client_ids,
+                    status='active',
+                    is_archived=False
+                ).distinct().order_by('name')
+            
+            # Default: show all active programs
+            else:
+                return Program.objects.filter(status='active', is_archived=False).order_by('name')
+                
+        except Exception:
+            # If there's any error, show all active programs
+            return Program.objects.filter(status='active', is_archived=False).order_by('name')
+    
     def get_queryset(self):
         # First apply the ProgramManagerAccessMixin filtering
         queryset = super().get_queryset().select_related('client', 'program', 'program__department')
@@ -1968,7 +2094,8 @@ class EnrollmentListView(StaffAccessControlMixin, AnalystAccessMixin, ProgramMan
         department_filter = self.request.GET.get('department', '')
         status_filter = self.request.GET.get('status', '')
         client_search = self.request.GET.get('client_search', '').strip()
-        program_search = self.request.GET.get('program_search', '').strip()
+        program_filter = self.request.GET.get('program', '').strip()
+        client_sort = self.request.GET.get('client_sort', '').strip()
         
         if department_filter:
             queryset = queryset.filter(program__department__name=department_filter)
@@ -1981,12 +2108,12 @@ class EnrollmentListView(StaffAccessControlMixin, AnalystAccessMixin, ProgramMan
                 Q(client__alias__icontains=client_search)
             ).distinct()
         
-        if program_search:
-            queryset = queryset.filter(
-                Q(program__name__icontains=program_search) |
-                Q(program__department__name__icontains=program_search) |
-                Q(program__location__icontains=program_search)
-            ).distinct()
+        if program_filter:
+            try:
+                program_id = int(program_filter)
+                queryset = queryset.filter(program_id=program_id)
+            except (ValueError, TypeError):
+                pass
         
         today = timezone.now().date()
         queryset = queryset.annotate(
@@ -2006,7 +2133,21 @@ class EnrollmentListView(StaffAccessControlMixin, AnalystAccessMixin, ProgramMan
             else:
                 queryset = queryset.filter(computed_status=status_filter)
         
-        queryset = queryset.order_by('-start_date')
+        # Apply client sorting with case-insensitive ordering (first name, then last name)
+        from django.db.models.functions import Lower
+        if client_sort == 'name_asc':
+            queryset = queryset.annotate(
+                client_first_name_lower=Lower('client__first_name'),
+                client_last_name_lower=Lower('client__last_name')
+            ).order_by('client_first_name_lower', 'client_last_name_lower', '-start_date')
+        elif client_sort == 'name_desc':
+            queryset = queryset.annotate(
+                client_first_name_lower=Lower('client__first_name'),
+                client_last_name_lower=Lower('client__last_name')
+            ).order_by('-client_first_name_lower', '-client_last_name_lower', '-start_date')
+        else:
+            queryset = queryset.order_by('-start_date')
+        
         self._filtered_enrollments = queryset
         return queryset
     
@@ -2103,11 +2244,15 @@ class EnrollmentListView(StaffAccessControlMixin, AnalystAccessMixin, ProgramMan
         context['start_date'] = start_date
         context['end_date'] = end_date
         
+        # Get accessible programs for dropdown (similar to ClientListView)
+        context['programs'] = self.get_accessible_programs()
+        
         # Add current filter values
         context['current_department'] = self.request.GET.get('department', '')
         context['current_status'] = self.request.GET.get('status', '')
         context['client_search'] = self.request.GET.get('client_search', '')
-        context['program_search'] = self.request.GET.get('program_search', '')
+        context['current_program'] = self.request.GET.get('program', '')
+        context['client_sort'] = self.request.GET.get('client_sort', '')
         context['per_page'] = self.request.GET.get('per_page', '10')
         
         # Force pagination to be enabled if there are any results

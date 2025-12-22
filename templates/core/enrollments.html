@@ -196,7 +196,7 @@
             </div>
             
             <!-- First Row: Main Filters -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                 <!-- Client Search -->
                 <div>
                     <label class="block text-sm font-bold text-neutral-700 mb-2 font-subheader">Client Search</label>
@@ -214,21 +214,25 @@
                     </div>
                 </div>
                 
-                <!-- Program Search -->
+                <!-- Program Filter -->
                 <div>
-                    <label class="block text-sm font-bold text-neutral-700 mb-2 font-subheader">Program Search</label>
-                    <div class="relative">
-                        <input type="text" 
-                               name="program_search" 
-                               value="{{ program_search }}" 
-                               placeholder="Search programs..." 
-                               class="w-full pl-10 pr-4 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-sky focus:border-transparent font-body">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                            </svg>
-                        </div>
-                    </div>
+                    <label class="block text-sm font-bold text-neutral-700 mb-2 font-subheader">Program</label>
+                    <select name="program" class="w-full px-3 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-sky focus:border-transparent font-body">
+                        <option value="">All Programs</option>
+                        {% for program in programs %}
+                        <option value="{{ program.id }}" {% if current_program == program.id|stringformat:"s" %}selected{% endif %}>{{ program.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Client Sort -->
+                <div>
+                    <label class="block text-sm font-bold text-neutral-700 mb-2 font-subheader">Sort Clients</label>
+                    <select name="client_sort" class="w-full px-3 py-3 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-sky focus:border-transparent font-body" onchange="this.form.submit()">
+                        <option value="">Default</option>
+                        <option value="name_asc" {% if client_sort == 'name_asc' %}selected{% endif %}>Name (A → Z)</option>
+                        <option value="name_desc" {% if client_sort == 'name_desc' %}selected{% endif %}>Name (Z → A)</option>
+                    </select>
                 </div>
                 
                 <!-- Department Filter -->
@@ -254,7 +258,7 @@
                 
                 <!-- Clear Button -->
                 <div class="flex flex-col justify-end">
-                    {% if client_search or program_search or current_department or current_status or start_date or end_date %}
+                    {% if client_search or current_program or current_department or current_status or start_date or end_date %}
                     <a href="{% url 'core:enrollments' %}" class="inline-flex items-center justify-center px-4 py-3 border border-neutral-300 text-sm font-bold rounded-xl text-neutral-700 bg-white hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-sky transition-all duration-200 shadow-sm">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -302,7 +306,7 @@
             <!-- Third Row: Action Buttons -->
             <div class="flex items-center mt-4">
                 <div class="flex space-x-3">
-                    {% if client_search or program_search or current_department or current_status or start_date or end_date %}
+                    {% if client_search or current_program or current_department or current_status or start_date or end_date %}
                     <a href="{% url 'core:enrollments' %}" class="inline-flex items-center px-4 py-3 border border-neutral-300 text-sm font-bold rounded-xl text-neutral-700 bg-white hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-sky transition-all duration-200 shadow-sm">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -320,7 +324,7 @@
             </div>
             
             <!-- Results Count -->
-            {% if client_search or program_search or current_department or current_status or start_date or end_date %}
+            {% if client_search or current_program or current_department or current_status or start_date or end_date %}
             <div class="flex justify-between items-center pt-4 border-t border-neutral-200">
                 <div class="text-sm text-neutral-600 font-body">
                     <span class="font-bold">{{ total_filtered_count }}</span> enrollment(s) found
